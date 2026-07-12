@@ -82,6 +82,7 @@ class CatalogStats:
     """
 
     def __init__(self, songs: Iterable[Any]):
+        """Derive tempo scaling bounds and per-genre/mood centroids from the catalog."""
         feats = [_as_features(s) for s in songs]
         tempos = [f["tempo_bpm"] for f in feats]
         # tempo is scaled to 0-1 using the catalog's own min/max (data-driven).
@@ -101,6 +102,7 @@ class CatalogStats:
         }
 
     def _centroids(self, feats: List[Dict[str, Any]], key: str) -> Dict[str, Dict[str, float]]:
+        """Average the normalized similarity features of every song sharing each genre/mood label."""
         groups: Dict[str, List[Dict[str, float]]] = {}
         for f in feats:
             groups.setdefault(f[key], []).append(self._norm_vec(f))
@@ -196,11 +198,13 @@ class Recommender:
     Required by tests/test_recommender.py
     """
     def __init__(self, songs: List[Song]):
+        """Store the catalog and derive its similarity stats once for reuse."""
         self.songs = songs
         # Centroids/stats are derived once from the catalog and reused.
         self._stats = CatalogStats(songs) if songs else None
 
     def _score(self, user: UserProfile, song: Song) -> Tuple[float, List[str]]:
+        """Score one song for a user, returning (score, reasons)."""
         return _score_attributes(
             features=_as_features(song),
             favorite_genre=user.favorite_genre,
@@ -211,6 +215,7 @@ class Recommender:
         )
 
     def recommend(self, user: UserProfile, k: int = 5) -> List[Song]:
+        """Return the top-k songs for a user, ranked by score descending."""
         ranked = sorted(
             self.songs,
             key=lambda song: self._score(user, song)[0],
@@ -219,6 +224,7 @@ class Recommender:
         return ranked[:k]
 
     def explain_recommendation(self, user: UserProfile, song: Song) -> str:
+        """Build a human-readable one-line explanation of a song's score for a user."""
         score, reasons = self._score(user, song)
         if reasons:
             return f"{song.title} (score {score:.2f}): " + ", ".join(reasons) + "."
